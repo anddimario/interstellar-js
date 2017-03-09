@@ -23,5 +23,14 @@ Example:
 `hset vhost:localhost:3000:/ path /path/to/my/files/directory`     
 `hset vhost:localhost:3000:/ file myfile.ext`      
 
-###License
+### Gravity basic example
+- Follow the [gravity install guide](https://marcobambini.github.io/gravity/getting-started.html) for start
+- After you have cloned and make gravity (suppose that we clone it in /home/myuser/gravity), create an example file (mytest.gravity) in the gravity directory with your code
+- Add rules in redis     
+`hset vhost:localhost:3000:/ path /home/myuser/gravity`     
+`hset vhost:localhost:3000:/ file mytest.gravity`     
+- Test with curl    
+`curl http://localhost:3000/`
+
+### License
 MIT
