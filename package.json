@@ -1,0 +1,15 @@
+{
+  "name": "inutile",
+  "version": "0.0.1",
+  "description": "Http server that exec cmd",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Andrea Di Mario",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^4.0.0",
+    "redis": "^2.6.5"
+  }
+}
