@@ -9,6 +9,7 @@
   "author": "Andrea Di Mario",
   "license": "MIT",
   "dependencies": {
+    "async": "^2.1.5",
     "dotenv": "^4.0.0",
     "redis": "^2.6.5"
   }
