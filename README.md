@@ -1,6 +1,6 @@
 # INTERSTELLAR
-Http server that exec cmd and use redis to host/url mapping, started to test [gravity-lang](https://marcobambini.github.io/gravity/) as server language. You can use middleware feature as chain of functions. Tested with: gravity, rust, php and bash.     
-It's an experiment to define a flexible microservices proxy.    
+Http server that exec cmd and use redis to host/url mapping, started to test [gravity-lang](https://marcobambini.github.io/gravity/) as server language, then the idea is evolved. You can use middleware feature as chain of functions. Tested with: golang, gravity, rust, php and bash.     
+It's an experiment to define a flexible microservices proxy. Microservices run as commands and are in files, so you can use flexible language, no needs hot reload, share middleware from different project, easy deploy.      
 
 ### Requirements
 Node.JS and redis
@@ -54,7 +54,8 @@ func main () {
 ```
 - Test again with curl    
 `curl http://localhost:3000/ciao`     
-- See that if the middleware return true, the exec was blocked
+- See that if the middleware return false, the exec was blocked
+*IMP* Exec is blocked if middleware return false in stdout, or return no empyt stderr, or there's an error
 
 ### Body (POST) and querystring (GET) (Example based on rust)
 To show how use body (POST) or querystring (GET) requests, here an example in rust
@@ -86,7 +87,39 @@ fn main() {
 - Test with curl    
 `curl -d "Ciao" http://localhost:3000/ciao`     
 - Body (and querystring) is propagated in each command as argument
-- Try to write main.rs as mid.rs to use args, you can see that also the mid stdout is passed to main
+- Try to write main.rs as mid.rs to use args, you can see that also the mid stdout is passed to main, see the specific example below
+
+### Middleware chained informations (Example with GET, querystring and golang)
+- Create two files, mid.go:
+```
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Print("ciao")
+}
+```
+and main.go:
+```
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	argsWithoutProg := os.Args[1:]
+	fmt.Println(argsWithoutProg)
+}
+```
+- Compile them, then add routing:    
+`hset vhost:localhost:3000:/ciao method GET`       
+`hset vhost:localhost:3000:/ciao commands "cd /home/myuser/rust && ./mid,cd /home/myuser/rust ./main"`      
+- Test with curl    
+`curl http://localhost:3000/ciao?foo=bar`     
+You should see in the response the querystring and the middleware's stdout
 
 ### License
 MIT
