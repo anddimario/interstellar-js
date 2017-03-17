@@ -1,19 +1,28 @@
 # INTERSTELLAR
-Http server that exec cmd and use redis to host/url mapping, started to test [gravity-lang](https://marcobambini.github.io/gravity/) as server language, then the idea is evolved. You can use middleware feature as chain of functions. Tested with: golang, gravity, rust, php and bash.     
+HTTP server that exec cmd and use redis to host/url mapping, started to test [gravity-lang](https://marcobambini.github.io/gravity/) as server language, then the idea is evolved. You can use middleware feature as chain of functions. Tested with: golang, gravity, rust and php.     
 It's an experiment to define a flexible microservices proxy. Microservices run as commands and are in files, so you can use flexible language, no needs hot reload, share middleware from different project, easy deploy.      
 
+### Features
+- multiple languages backend
+- middlewares (different languages too)
+- not reload for new codes
+- status health check
+- maintenance mode for single route
+- custom response content type
+
 ### Requirements
-Node.JS and redis
+Node.JS v4 and redis
 
 ### Install
-`clone the repo`    
+`git clone git@github.com:anddimario/interstellar.git`    
 `npm install`     
 `node app.js`     
 
 ### Env Variables
-Create in the repository root a .env file with this config:
+Create in the directory root a .env file with this config:
 ```
 PORT=3000
+REDIS_URL=redis://127.0.0.1:6379
 ```
 
 ### Add host routing
@@ -120,6 +129,39 @@ func main() {
 - Test with curl    
 `curl http://localhost:3000/ciao?foo=bar`     
 You should see in the response the querystring and the middleware's stdout
+
+### Setup response content type header (optional)
+You can setup response content type header with this redis hset:    
+`hset vhost:localhost:3000:/ciao content_type application/json`    
+
+### STATUS HEALTH CHECK (optional)
+Add in .env:
+```
+HEALTH_CHECK=true
+HEALTH_CHECK_TYPE=
+HEALTH_CHECK_MATCH=
+```
+Where `HEALTH_CHECK_TYPE` could be:
+- *path*: if the reference is request.url
+- *user-agent* if the reference is the client agent
+Example with user-agent (aws elb health check):
+```
+HEALTH_CHECK=true
+HEALTH_CHECK_TYPE=user-agent
+HEALTH_CHECK_MATCH=ELB-HealthChecker/1.0
+```
+Example with path status:
+```
+HEALTH_CHECK=true
+HEALTH_CHECK_TYPE=path
+HEALTH_CHECK_MATCH=/interstellar/status
+```
+
+### Route maintenance monde (optional)
+You can set a maintenance mode for route if necessary, add in redis for route:    
+`hset vhost:localhost:3000:/ maintenance true`    
+Disable maintenance with:   
+`hdel vhost:localhost:3000:/ maintenance`    
 
 ### License
 MIT
