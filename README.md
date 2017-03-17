@@ -9,6 +9,8 @@ It's an experiment to define a flexible microservices proxy. Microservices run a
 - status health check
 - maintenance mode for single route
 - custom response content type
+- process only if status is setted ready
+- ping health check
 
 ### Requirements
 Node.JS v4 and redis
@@ -23,7 +25,18 @@ Create in the directory root a .env file with this config:
 ```
 PORT=3000
 REDIS_URL=redis://127.0.0.1:6379
+INITIAL_STATUS=ready
 ```
+
+### Initial status
+When an Interstellar instance starts, it sets a redis variable in the form: 
+`interstellar:instances:HOSTNAME`, initialize this variable with `INITIAL_STATUS` and set a ttl (60 sec), useful to check instance health status.    
+In .env the `INITIAL_STATUS` is used to manage the possibility to process the request, default is `ready` so, when started, the instance could serve the request immediately, but you can set this status as you want. For example, a scenario where you mount your compiled files from a shared disk and you want wait this mount and, only then, serve the request. You can set `INITIAL_STATUS` as `waiting`, so, when the istance starts, the instance doesn't serve request and then, when you mount the disk, you could set the status as `ready` in redis with:     
+`set interstellar:instances:HOSTNAME ready`     
+Another scenario is when you deploy commit that affect more files and you want disable routing for single instance, indifferently from your `INITIAL_STATUS`, you can set status as `waiting` in redis with:     
+`set interstellar:instances:HOSTNAME waiting`    
+When done, allow request with:     
+`set interstellar:instances:HOSTNAME ready`     
 
 ### Add host routing
 Must add redis key in hash with this format: vhost:HOSTNAME:URL     
@@ -143,14 +156,15 @@ HEALTH_CHECK_MATCH=
 ```
 Where `HEALTH_CHECK_TYPE` could be:
 - *path*: if the reference is request.url
-- *user-agent* if the reference is the client agent
+- *user-agent* if the reference is the client agent    
+
 Example with user-agent (aws elb health check):
 ```
 HEALTH_CHECK=true
 HEALTH_CHECK_TYPE=user-agent
 HEALTH_CHECK_MATCH=ELB-HealthChecker/1.0
 ```
-Example with path status:
+Example with path:
 ```
 HEALTH_CHECK=true
 HEALTH_CHECK_TYPE=path
