@@ -147,7 +147,7 @@ You should see in the response the querystring and the middleware's stdout
 You can setup response content type header with this redis hset:    
 `hset vhost:localhost:3000:/ciao content_type application/json`    
 
-### STATUS HEALTH CHECK (optional)
+### Status health check (optional)
 Add in .env:
 ```
 HEALTH_CHECK=true
@@ -171,11 +171,22 @@ HEALTH_CHECK_TYPE=path
 HEALTH_CHECK_MATCH=/interstellar/status
 ```
 
-### Route maintenance monde (optional)
+### Route maintenance mode (optional)
 You can set a maintenance mode for route if necessary, add in redis for route:    
 `hset vhost:localhost:3000:/ maintenance true`    
 Disable maintenance with:   
 `hdel vhost:localhost:3000:/ maintenance`    
+
+### Custom system messages (optional)
+Define a custom content type response in .env with:    
+`CUSTOM_RESPONSE_TYPE=`     
+Then there are this defaults messages that you can customize with a variable in .env:    
+- *redis error*: `MESSAGES_REDIS_ERROR` back when a redis error occurs   
+- *not ready*: `MESSAGES_NOT_READY_ERROR` back when the application state is not ready   
+- *UP*: `MESSAGES_HEALTH_OK` back from interstellar health check    
+- *not found*: `MESSAGES_NOT_FOUND` back when route not found    
+- *maintenance*: `MESSAGES_MAINTENANCE_ACTIVE` back if maintenance is active for route
+
 
 ### License
 MIT

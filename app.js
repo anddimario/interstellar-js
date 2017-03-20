@@ -25,18 +25,30 @@ const requestHandler = (request, response) => {
   redisClient.get(`interstellar:instances:${hostname}`, (errStatus, instanceStatus) => {
     if (errStatus) {
       response.statusCode = 500;
-      response.end('redis error')
+      if (process.env.CUSTOM_RESPONSE_TYPE) {
+        response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
+      }
+      response.end(process.env.MESSAGES_REDIS_ERROR || 'redis error')
     } else {
       if (instanceStatus !== "ready") {
         response.statusCode = 500;
-        response.end('not ready')
+        if (process.env.CUSTOM_RESPONSE_TYPE) {
+          response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
+        }
+        response.end(process.env.MESSAGES_NOT_READY_ERROR || 'not ready')
       } else {
 
         // Check if it's active the status health check
         if (process.env.HEALTH_CHECK && (request.headers[process.env.HEALTH_CHECK_TYPE] === process.env.HEALTH_CHECK_MATCH)) {
-          response.end('UP');
+          if (process.env.CUSTOM_RESPONSE_TYPE) {
+            response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
+          }
+          response.end(process.env.MESSAGES_HEALTH_OK || 'UP')
         } else if (process.env.HEALTH_CHECK && (process.env.HEALTH_CHECK_TYPE === 'path') && (request.url === process.env.HEALTH_CHECK_MATCH)) {
-          response.end('UP');
+          if (process.env.CUSTOM_RESPONSE_TYPE) {
+            response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
+          }
+          response.end(process.env.MESSAGES_HEALTH_OK || 'UP')
         } else { // normal request
           // Parse the url to get informations
           const parsedUrl = url.parse(request.url, true);
@@ -44,13 +56,22 @@ const requestHandler = (request, response) => {
           redisClient.hgetall(`vhost:${request.headers.host}:${parsedUrl.pathname}`, (errRedis, resVhost) => {
             if (errRedis) {
               response.statusCode = 500;
-              response.end('redis error')
+              if (process.env.CUSTOM_RESPONSE_TYPE) {
+                response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
+              }
+              response.end(process.env.MESSAGES_REDIS_ERROR || 'redis error')
             } else if ((!resVhost) || (resVhost.method !== request.method)) { // not found
               response.statusCode = 404;
-              response.end('not found')
+              if (process.env.CUSTOM_RESPONSE_TYPE) {
+                response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
+              }
+              response.end(process.env.MESSAGES_NOT_FOUND || 'not found')
             } else if (resVhost.maintenance) { // maintenance mode
               response.statusCode = 503;
-              response.end('maintenance')
+              if (process.env.CUSTOM_RESPONSE_TYPE) {
+                response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
+              }
+              response.end(process.env.MESSAGES_MAINTENANCE_ACTIVE || 'maintenance')
             } else {
               var body = [];
               request.on('error', function (err) {
