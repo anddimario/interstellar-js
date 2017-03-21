@@ -143,6 +143,14 @@ func main() {
 `curl http://localhost:3000/ciao?foo=bar`     
 You should see in the response the querystring and the middleware's stdout
 
+### Arguments and order passed to commands
+Arguments are passed to commands with this order:    
+`COMMAND HOSTNAME BODY/QUERYSTRING MIDDLEWARE_STDOUT`     
+Where:
+- HOSTNAME: is the hostname from request that you can use to reference for example for find a specific configuration   
+- BODY/QUERYSTRING: is the request body (POST) or querystring (GET), both are in json stringify format (optional) 
+- MIDDLEWARE_STDOUT: is the output for middlewares (optional)
+
 ### Setup response content type header (optional)
 You can setup response content type header with this redis hset:    
 `hset vhost:localhost:3000:/ciao content_type application/json`    
@@ -187,6 +195,8 @@ Then there are this defaults messages that you can customize with a variable in 
 - *not found*: `MESSAGES_NOT_FOUND` back when route not found    
 - *maintenance*: `MESSAGES_MAINTENANCE_ACTIVE` back if maintenance is active for route
 
+### Example application
+- [Microblog](https://github.com/anddimario/interstellar-microblog)
 
 ### License
 MIT

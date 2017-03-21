@@ -13,6 +13,7 @@ const port = process.env.PORT
 const redis = require('redis')
 const redisClient = redis.createClient({ url: process.env.REDIS_URL })
 const async = require('async')
+const querystring = require('querystring')
 const url = require('url')
 const os = require('os')
 
@@ -87,16 +88,14 @@ const requestHandler = (request, response) => {
                 let tasks = []
                 // Create task for waterfall, based on files
                 for (let i = 0; i < commands.length; i++) {
-                  let command
+                  let command = `${commands[i]} ${request.headers.host}`
                   // Pass body or querystring to commands
                   if (body) {
-                    command = `${commands[i]} ${body}`
+                    body = JSON.stringify(querystring.parse(body))
+                    command += ` ${body}`
                   } else if (Object.keys(parsedUrl.query).length > 0) {
-                    command = `${commands[i]} ${JSON.stringify(parsedUrl.query)}`
-                  } else {
-                    command = `${commands[i]}`
+                    command += ` ${JSON.stringify(parsedUrl.query)}`
                   }
-
                   // First task
                   if (i === 0) {
                     tasks.push((callback) => {
