@@ -1,24 +1,24 @@
-'use strict'
+'use strict';
 /*
  * INUTERSTELLAR
  * http server
  */
 
 // Requirements
-require('dotenv').config()
+require('dotenv').config();
 
-const http = require('http')
-const exec = require('child_process').exec
-const port = process.env.PORT
-const redis = require('redis')
-const redisClient = redis.createClient({ url: process.env.REDIS_URL })
-const async = require('async')
-const querystring = require('querystring')
-const url = require('url')
-const os = require('os')
+const http = require('http');
+const exec = require('child_process').exec;
+const port = process.env.PORT;
+const redis = require('redis');
+const redisClient = redis.createClient({ url: process.env.REDIS_URL });
+const async = require('async');
+const querystring = require('querystring');
+const url = require('url');
+const os = require('os');
 
 // Get instance hostname
-const hostname = os.hostname()
+const hostname = os.hostname();
 
 // Docs: https://nodejs.org/en/docs/guides/anatomy-of-an-http-transaction/
 const requestHandler = (request, response) => {
@@ -29,14 +29,14 @@ const requestHandler = (request, response) => {
       if (process.env.CUSTOM_RESPONSE_TYPE) {
         response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
       }
-      response.end(process.env.MESSAGES_REDIS_ERROR || 'redis error')
+      response.end(process.env.MESSAGES_REDIS_ERROR || 'redis error');
     } else {
       if (instanceStatus !== "ready") {
         response.statusCode = 500;
         if (process.env.CUSTOM_RESPONSE_TYPE) {
           response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
         }
-        response.end(process.env.MESSAGES_NOT_READY_ERROR || 'not ready')
+        response.end(process.env.MESSAGES_NOT_READY_ERROR || 'not ready');
       } else {
 
         // Check if it's active the status health check
@@ -44,12 +44,12 @@ const requestHandler = (request, response) => {
           if (process.env.CUSTOM_RESPONSE_TYPE) {
             response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
           }
-          response.end(process.env.MESSAGES_HEALTH_OK || 'UP')
+          response.end(process.env.MESSAGES_HEALTH_OK || 'UP');
         } else if (process.env.HEALTH_CHECK && (process.env.HEALTH_CHECK_TYPE === 'path') && (request.url === process.env.HEALTH_CHECK_MATCH)) {
           if (process.env.CUSTOM_RESPONSE_TYPE) {
             response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
           }
-          response.end(process.env.MESSAGES_HEALTH_OK || 'UP')
+          response.end(process.env.MESSAGES_HEALTH_OK || 'UP');
         } else { // normal request
           // Parse the url to get informations
           const parsedUrl = url.parse(request.url, true);
@@ -60,19 +60,19 @@ const requestHandler = (request, response) => {
               if (process.env.CUSTOM_RESPONSE_TYPE) {
                 response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
               }
-              response.end(process.env.MESSAGES_REDIS_ERROR || 'redis error')
+              response.end(process.env.MESSAGES_REDIS_ERROR || 'redis error');
             } else if ((!resVhost) || (resVhost.method !== request.method)) { // not found
               response.statusCode = 404;
               if (process.env.CUSTOM_RESPONSE_TYPE) {
                 response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
               }
-              response.end(process.env.MESSAGES_NOT_FOUND || 'not found')
+              response.end(process.env.MESSAGES_NOT_FOUND || 'not found');
             } else if (resVhost.maintenance) { // maintenance mode
               response.statusCode = 503;
               if (process.env.CUSTOM_RESPONSE_TYPE) {
                 response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
               }
-              response.end(process.env.MESSAGES_MAINTENANCE_ACTIVE || 'maintenance')
+              response.end(process.env.MESSAGES_MAINTENANCE_ACTIVE || 'maintenance');
             } else {
               var body = [];
               request.on('error', function (err) {
@@ -84,18 +84,28 @@ const requestHandler = (request, response) => {
                 // At this point, we have the headers, method, url and body, and can now
                 // do whatever we need to in order to respond to this request.
                 // Split the file value
-                const commands = resVhost.commands.split(',')
-                let tasks = []
+                const commands = resVhost.commands.split(',');
+                let tasks = [];
                 // Create task for waterfall, based on files
                 for (let i = 0; i < commands.length; i++) {
-                  let command = `${commands[i]} ${request.headers.host}`
-                  // Pass body or querystring to commands
-                  if (body) {
-                    body = JSON.stringify(querystring.parse(body))
-                    command += ` ${body}`
-                  } else if (Object.keys(parsedUrl.query).length > 0) {
-                    command += ` ${JSON.stringify(parsedUrl.query)}`
+                  let command = `${commands[i]}`;
+                  // Check if the code is stored in redis and try to replace
+                  if (resVhost.code) {
+                    command = command.replace('CUSTOM_CODE', `"${resVhost.code}"`);
+                    // replace hostname
+                    command = command.replace('HOSTNAME', `${request.headers.host}`);
+                  } else { // Execute code from commands in filesystem
+                    command += ` ${request.headers.host}`;
+                    // Pass body or querystring to commands
+                    if (body) {
+                      body = JSON.stringify(querystring.parse(body));
+                      command += ` ${body}`;
+                    } else if (Object.keys(parsedUrl.query).length > 0) {
+                      command += ` ${JSON.stringify(parsedUrl.query)}`;
+                    }
                   }
+                  console.log(command)
+
                   // First task
                   if (i === 0) {
                     tasks.push((callback) => {
@@ -103,13 +113,13 @@ const requestHandler = (request, response) => {
                       exec(command, { encoding: 'utf8' }, (err, stdout, stderr) => {
                         // Check if stdout return is false, or there's an error, or stderr not empty return and block the waterfall
                         if (err || stderr || (stdout.indexOf('false') !== -1)) {
-                          callback(stderr)
+                          callback(stderr);
                         } else {
-                          callback(null, stdout)
+                          callback(null, stdout);
                         }
 
-                      })
-                    })
+                      });
+                    });
                   } else { // other tasks
                     tasks.push((previous, callback) => {
                       // Pass previous results
@@ -120,13 +130,13 @@ const requestHandler = (request, response) => {
                       exec(command, { encoding: 'utf8' }, (err, stdout, stderr) => {
                         // Check if stdout return is false, or there's an error, or stderr not empty return and block the waterfall
                         if (err || stderr || (stdout.indexOf('false') !== -1)) {
-                          callback(stderr)
+                          callback(stderr);
                         } else {
-                          callback(null, stdout)
+                          callback(null, stdout);
                         }
 
-                      })
-                    })
+                      });
+                    });
                   }
                 }
                 async.waterfall(tasks, (err, results) => {
@@ -136,11 +146,11 @@ const requestHandler = (request, response) => {
                   }
                   if (err) {
                     response.statusCode = 500;
-                    response.end(err)
+                    response.end(err);
                   } else {
-                    response.end(results)
+                    response.end(results);
                   }
-                })
+                });
               });
             }
 
@@ -151,23 +161,23 @@ const requestHandler = (request, response) => {
       }
     }
 
-  })
-}
+  });
+};
 
 // Register instance on redis with initial state and set expire (for health check on redis)
-redisClient.set(`interstellar:instances:${hostname}`, process.env.INITIAL_STATUS)
-redisClient.expire(`interstellar:instances:${hostname}`, 60)
+redisClient.set(`interstellar:instances:${hostname}`, process.env.INITIAL_STATUS);
+redisClient.expire(`interstellar:instances:${hostname}`, 60);
 // Refresh expire
 setInterval(() => {
-  redisClient.expire(`interstellar:instances:${hostname}`, 60)
-}, 50000)
+  redisClient.expire(`interstellar:instances:${hostname}`, 60);
+}, 50000);
 
-const server = http.createServer(requestHandler)
+const server = http.createServer(requestHandler);
 
 server.listen(port, (err) => {
   if (err) {
-    return console.log('something bad happened', err)
+    return console.log('something bad happened', err);
   }
 
-  console.log(`server is listening on ${port}`)
-})
+  console.log(`server is listening on ${port}`);
+});

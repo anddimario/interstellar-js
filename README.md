@@ -1,10 +1,11 @@
 # INTERSTELLAR
-HTTP server that exec cmd and use redis to host/url mapping, started to test [gravity-lang](https://marcobambini.github.io/gravity/) as server language, then the idea is evolved. You can use middleware feature as chain of functions. Tested with: golang, gravity, rust and php.     
+HTTP server that exec code and use redis to host/url mapping, started to test [gravity-lang](https://marcobambini.github.io/gravity/) as server language, then the idea is evolved. You can use middleware feature as chain of functions. Tested with: golang, gravity, rust and php.     
 It's an experiment to define a flexible microservices proxy. Microservices run as commands and are in files, so you can use flexible language, no needs hot reload, share middleware from different project, easy deploy.      
 
 ### Features
 - multiple languages backend
 - middlewares (different languages too)
+- code stored in redis
 - not reload for new codes
 - status health check
 - maintenance mode for single route
@@ -151,6 +152,16 @@ Where:
 - BODY/QUERYSTRING: is the request body (POST) or querystring (GET), both are in json stringify format (optional) 
 - MIDDLEWARE_STDOUT: is the output for middlewares (optional)
 
+### Code from redis (example with php)
+In redis run this commands:
+```
+hset vhost:localhost:3000:/redis commands "echo CUSTOM_CODE | php"
+hset vhost:localhost:3000:/redis method GET
+hset vhost:localhost:3000:/redis code "<?php \\$i=5+2; echo 'Response from HOSTNAME is: '.\\$i;"
+```
+Then with curl: `curl localhost:3000/redis`    
+__IMP__ Note that `HOSTNAME` is replaced from interstellar and `CUSTOM_CODE` in commands is where interstellare replace your code
+
 ### Setup response content type header (optional)
 You can setup response content type header with this redis hset:    
 `hset vhost:localhost:3000:/ciao content_type application/json`    
@@ -194,6 +205,10 @@ Then there are this defaults messages that you can customize with a variable in 
 - *UP*: `MESSAGES_HEALTH_OK` back from interstellar health check    
 - *not found*: `MESSAGES_NOT_FOUND` back when route not found    
 - *maintenance*: `MESSAGES_MAINTENANCE_ACTIVE` back if maintenance is active for route
+
+### Security
+For security reason you can run commands using containers, or try: [nsjail](https://github.com/google/nsjail)    
+Example: `nsjail -Mo --chroot / -q -- /path/to/your/file args`
 
 ### Example application
 - [Microblog](https://github.com/anddimario/interstellar-microblog)
