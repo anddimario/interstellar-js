@@ -12,6 +12,7 @@ It's an experiment to define a flexible microservices proxy. Microservices run a
 - custom response content type
 - process only if status is setted ready
 - ping health check
+- trigger that exec commands
 
 ### Requirements
 Node.JS v4 and redis
@@ -205,6 +206,27 @@ Then there are this defaults messages that you can customize with a variable in 
 - *UP*: `MESSAGES_HEALTH_OK` back from interstellar health check    
 - *not found*: `MESSAGES_NOT_FOUND` back when route not found    
 - *maintenance*: `MESSAGES_MAINTENANCE_ACTIVE` back if maintenance is active for route
+
+### Triggers
+You can set a trigger that exec a commands when the thresold is reached, for example create a trigger with this command in redis:    
+`set interstellar:triggers:my_great_trigger '{"min":5,"key":"interstellar:variables:triggers:test","thresold":5,"command":"touch /tmp/alert","global":true}'`     
+In this way you have defined a trigger that exec `touch /tmp/alert` if there are 5 global request in 5 minutes.    
+Options:
+- `min`: the interval in minutes used to reference for trigger count that is refreshed when the time expire
+- `key`: the temporary key used to store the count for this trigger
+- `thresold`: when this count is reached the command is fired
+- `command`: the command to fire when thresold is reached
+- `global`: if it is setted as true, it's a global trigger that refer to all requests in all instances and for all sites (optional)
+- `instance`: in the form: "instance":"hostname", it is used to watch requests for a specific instance (optional)
+- `status`: for example: "status":200, it is used to fire trigger when the thresold based on request status is reached (optional)
+- `site`: for example: "site":"example.com", watch the requests for a specific site
+
+### Errors logs
+They are stored in redis in the form: `interstellar:logs:INSTANCE:TIMESTAMP string`
+
+### Stats
+You can see them in redis with: `KEYS interstellar:stats:*`     
+Stats are for status code, instance, sites and in general.
 
 ### Security
 For security reason you can run commands using containers, or try: [nsjail](https://github.com/google/nsjail)    

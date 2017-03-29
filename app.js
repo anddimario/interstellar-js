@@ -16,6 +16,7 @@ const async = require('async');
 const querystring = require('querystring');
 const url = require('url');
 const os = require('os');
+const stats = require('./libs/stats');
 
 // Get instance hostname
 const hostname = os.hostname();
@@ -74,9 +75,9 @@ const requestHandler = (request, response) => {
               }
               response.end(process.env.MESSAGES_MAINTENANCE_ACTIVE || 'maintenance');
             } else {
-              var body = [];
+              let body = [];
               request.on('error', function (err) {
-                console.error(err);
+                redis.set(`interstellar:logs:${hostname}:${Date.now}`, err);
               }).on('data', function (chunk) {
                 body.push(chunk);
               }).on('end', function () {
@@ -104,7 +105,6 @@ const requestHandler = (request, response) => {
                       command += ` ${JSON.stringify(parsedUrl.query)}`;
                     }
                   }
-                  console.log(command)
 
                   // First task
                   if (i === 0) {
@@ -147,8 +147,18 @@ const requestHandler = (request, response) => {
                   if (err) {
                     response.statusCode = 500;
                     response.end(err);
+                    stats.increment(500, hostname, request.headers.host, (err) => {
+                      if (err) {
+                        return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
+                      }
+                    });
                   } else {
                     response.end(results);
+                    stats.increment(500, hostname, request.headers.host, (err) => {
+                      if (err) {
+                        return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
+                      }
+                    });
                   }
                 });
               });
@@ -176,8 +186,6 @@ const server = http.createServer(requestHandler);
 
 server.listen(port, (err) => {
   if (err) {
-    return console.log('something bad happened', err);
+    return redis.set(`interstellar:logs:${hostname}:${Date.now}`, err);
   }
-
-  console.log(`server is listening on ${port}`);
 });
