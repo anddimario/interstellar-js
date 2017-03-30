@@ -55,7 +55,7 @@ const requestHandler = (request, response) => {
           // Parse the url to get informations
           const parsedUrl = url.parse(request.url, true);
           // Get path info from redis
-          redisClient.hgetall(`vhost:${request.headers.host}:${parsedUrl.pathname}`, (errRedis, resVhost) => {
+          redisClient.hgetall(`interstellar:vhost:${request.headers.host}:${parsedUrl.pathname}`, (errRedis, resVhost) => {
             if (errRedis) {
               response.statusCode = 500;
               if (process.env.CUSTOM_RESPONSE_TYPE) {

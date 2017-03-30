@@ -41,18 +41,18 @@ When done, allow request with:
 `set interstellar:instances:HOSTNAME ready`     
 
 ### Add host routing
-Must add redis key in hash with this format: vhost:HOSTNAME:URL     
+Must add redis key in hash with this format: interstellar:vhost:HOSTNAME:URL     
 Example:      
 `redis-cli`     
-`hset vhost:localhost:3000:/ commands "command1,command2,..."`      
-`hset vhost:localhost:3000:/ method GET`      
+`hset interstellar:vhost:localhost:3000:/ commands "command1,command2,..."`      
+`hset interstellar:vhost:localhost:3000:/ method GET`      
 
 ### Gravity basic example
 - Follow the [gravity install guide](https://marcobambini.github.io/gravity/getting-started.html) for start
 - After you have cloned and make gravity (suppose that we clone it in /home/myuser/gravity), create an example file (mytest.gravity) in the gravity directory with your code
 - Add rules in redis     
-`hset vhost:localhost:3000:/ method GET`      
-`hset vhost:localhost:3000:/ commands "cd /home/myuser/gravity && ./gravity mytest.gravity"`      
+`hset interstellar:vhost:localhost:3000:/ method GET`      
+`hset interstellar:vhost:localhost:3000:/ commands "cd /home/myuser/gravity && ./gravity mytest.gravity"`      
 - Test with curl    
 `curl http://localhost:3000/`
 
@@ -65,8 +65,8 @@ func main () {
 }
 ```
 - Then we can add a route for this, with:     
-`hset vhost:localhost:3000:/ciao method GET`      
-`hset vhost:localhost:3000:/ciao commands "cd /home/myuser/gravity && ./gravity mymid.gravity,cd /home/myuser/gravity && ./gravity mytest.gravity"`      
+`hset interstellar:vhost:localhost:3000:/ciao method GET`      
+`hset interstellar:vhost:localhost:3000:/ciao commands "cd /home/myuser/gravity && ./gravity mymid.gravity,cd /home/myuser/gravity && ./gravity mytest.gravity"`      
 *Note* The function order is important, and use commas to separate them
 - Test with curl    
 `curl http://localhost:3000/ciao`     
@@ -106,8 +106,8 @@ fn main() {
 }
 ```
 - Compile them, then add routing:    
-`hset vhost:localhost:3000:/ciao method POST`       
-`hset vhost:localhost:3000:/ciao commands "cd /home/myuser/rust && ./mid,cd /home/myuser/rust ./main"`      
+`hset interstellar:vhost:localhost:3000:/ciao method POST`       
+`hset interstellar:vhost:localhost:3000:/ciao commands "cd /home/myuser/rust && ./mid,cd /home/myuser/rust ./main"`      
 - Test with curl    
 `curl -d "Ciao" http://localhost:3000/ciao`     
 - Body (and querystring) is propagated in each command as argument
@@ -139,8 +139,8 @@ func main() {
 }
 ```
 - Compile them, then add routing:    
-`hset vhost:localhost:3000:/ciao method GET`       
-`hset vhost:localhost:3000:/ciao commands "cd /home/myuser/rust && ./mid,cd /home/myuser/rust ./main"`      
+`hset interstellar:vhost:localhost:3000:/ciao method GET`       
+`hset interstellar:vhost:localhost:3000:/ciao commands "cd /home/myuser/rust && ./mid,cd /home/myuser/rust ./main"`      
 - Test with curl    
 `curl http://localhost:3000/ciao?foo=bar`     
 You should see in the response the querystring and the middleware's stdout
@@ -156,16 +156,16 @@ Where:
 ### Code from redis (example with php)
 In redis run this commands:
 ```
-hset vhost:localhost:3000:/redis commands "echo CUSTOM_CODE | php"
-hset vhost:localhost:3000:/redis method GET
-hset vhost:localhost:3000:/redis code "<?php \\$i=5+2; echo 'Response from HOSTNAME is: '.\\$i;"
+hset interstellar:vhost:localhost:3000:/redis commands "echo CUSTOM_CODE | php"
+hset interstellar:vhost:localhost:3000:/redis method GET
+hset interstellar:vhost:localhost:3000:/redis code "<?php \\$i=5+2; echo 'Response from HOSTNAME is: '.\\$i;"
 ```
 Then with curl: `curl localhost:3000/redis`    
 __IMP__ Note that `HOSTNAME` is replaced from interstellar and `CUSTOM_CODE` in commands is where interstellare replace your code
 
 ### Setup response content type header (optional)
 You can setup response content type header with this redis hset:    
-`hset vhost:localhost:3000:/ciao content_type application/json`    
+`hset interstellar:vhost:localhost:3000:/ciao content_type application/json`    
 
 ### Status health check (optional)
 Add in .env:
@@ -193,9 +193,9 @@ HEALTH_CHECK_MATCH=/interstellar/status
 
 ### Route maintenance mode (optional)
 You can set a maintenance mode for route if necessary, add in redis for route:    
-`hset vhost:localhost:3000:/ maintenance true`    
+`hset interstellar:vhost:localhost:3000:/ maintenance true`    
 Disable maintenance with:   
-`hdel vhost:localhost:3000:/ maintenance`    
+`hdel interstellar:vhost:localhost:3000:/ maintenance`    
 
 ### Custom system messages (optional)
 Define a custom content type response in .env with:    
