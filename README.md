@@ -20,15 +20,8 @@ Node.JS v4 and redis
 ### Install
 `git clone git@github.com:anddimario/interstellar.git`    
 `npm install`     
+`cp .env.example .env`    
 `node app.js`     
-
-### Env Variables
-Create in the directory root a .env file with this config:
-```
-PORT=3000
-REDIS_URL=redis://127.0.0.1:6379
-INITIAL_STATUS=ready
-```
 
 ### Initial status
 When an Interstellar instance starts, it sets a redis variable in the form: 
@@ -56,102 +49,83 @@ Example:
 - Test with curl    
 `curl http://localhost:3000/`
 
-### Gravity advanced example (use middleware)
-Extend the basic example with middleware usage   
-- Create a new gravity file in the same path of mytest.gravity, we can call it mymid.gravity, with this basic code:
-```
-func main () {
-  return "ok" 
-}
-```
-- Then we can add a route for this, with:     
-`hset interstellar:vhost:localhost:3000:/ciao method GET`      
-`hset interstellar:vhost:localhost:3000:/ciao commands "cd /home/myuser/gravity && ./gravity mymid.gravity,cd /home/myuser/gravity && ./gravity mytest.gravity"`      
-*Note* The function order is important, and use commas to separate them
-- Test with curl    
-`curl http://localhost:3000/ciao`     
-- Try now to modify mymid.gravity as:     
-```
-func main () {
-  return false 
-}
-```
-- Test again with curl    
-`curl http://localhost:3000/ciao`     
-- See that if the middleware return false, the exec was blocked
-*IMP* Exec is blocked if middleware return false in stdout, or return no empyt stderr, or there's an error
-
-### Body (POST) and querystring (GET) (Example based on rust)
-To show how use body (POST) or querystring (GET) requests, here an example in rust
-- Create two files, mid.rs:
-```
-use std::env;
-
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    // The first argument is the path that was used to call the program.
-    println!("My path is {}.", args[0]);
-
-    // The rest of the arguments are the passed command line parameters.
-    // Call the program like this:
-    //   $ ./args arg1 arg2
-    println!("I got {:?} arguments: {:?}.", args.len() - 1, &args[1..]);
-}
-```
-and main.rs with:
-```
-fn main() {
-    println!("Ciao");
-}
-```
-- Compile them, then add routing:    
-`hset interstellar:vhost:localhost:3000:/ciao method POST`       
-`hset interstellar:vhost:localhost:3000:/ciao commands "cd /home/myuser/rust && ./mid,cd /home/myuser/rust ./main"`      
-- Test with curl    
-`curl -d "Ciao" http://localhost:3000/ciao`     
-- Body (and querystring) is propagated in each command as argument
-- Try to write main.rs as mid.rs to use args, you can see that also the mid stdout is passed to main, see the specific example below
-
-### Middleware chained informations (Example with GET, querystring and golang)
-- Create two files, mid.go:
+### Arguments passed to commands (middlewares, body, querystring and headers)
+In this example in golang with a put request there's how interstellar pass arguments to code with useful informations. 
+- Create a middleware mid.go with the code:
 ```
 package main
 
-import "fmt"
+import (
+        "encoding/json"
+	"fmt"
+	"os"
+)
 
 func main() {
-	fmt.Print("ciao")
+	// get last argument (the interstellar argument json)
+	last := len(os.Args) - 1
+        // Get and decode the json body passed by arguments
+        byt := []byte(os.Args[last])
+        var dat map[string]map[string]interface{}
+        if err := json.Unmarshal(byt, &dat); err != nil {
+                panic(err)
+        }
+	// get id from querystring and compare
+	if dat["querystring"]["id"] == "foo" {
+		// return
+		fmt.Print("Validation done")
+	} else {
+		fmt.Print("MiddlewareFailedValidation Failed")
+	}
 }
+
 ```
 and main.go:
 ```
 package main
 
 import (
+        "encoding/json"
 	"fmt"
 	"os"
 )
 
 func main() {
-	argsWithoutProg := os.Args[1:]
-	fmt.Println(argsWithoutProg)
+	// get last argument (the interstellar argument json)
+	last := len(os.Args) - 1
+        // Get and decode the json body passed by arguments
+        byt := []byte(os.Args[last])
+        var dat map[string]map[string]interface{}
+        if err := json.Unmarshal(byt, &dat); err != nil {
+                panic(err)
+        }
+	// return
+	fmt.Print(dat["headers"]["host"])
+	fmt.Print(" had ")
+	fmt.Print(dat["middlewares"]["1"])
+	fmt.Print(" for ")
+	fmt.Print(dat["body"]["field"])
 }
 ```
-- Compile them, then add routing:    
-`hset interstellar:vhost:localhost:3000:/ciao method GET`       
-`hset interstellar:vhost:localhost:3000:/ciao commands "cd /home/myuser/rust && ./mid,cd /home/myuser/rust ./main"`      
+**MUST KNOW** Exec is blocked if middleware return the `MIDDLEWARE_OUTPUT_FAILED` env variable value in stdout, or return no empty stderr, or there's an error. If middleware return the text setted in env variable `MIDDLEWARE_OUTPUT_SKIP`, the middleware output is not stored on arguments.
+- Compile them
+- Then we can add a route for this, with:     
+```
+hset interstellar:vhost:localhost:3000:/test method PUT      
+hset interstellar:vhost:localhost:3000:/test commands "cd /home/myuser/mybinary && ./mid,cd /home/myuser/mybinary && ./main"
+```      
+**Note** The function order is important because are executed in this order, and use commas to separate them
 - Test with curl    
-`curl http://localhost:3000/ciao?foo=bar`     
-You should see in the response the querystring and the middleware's stdout
-
-### Arguments and order passed to commands
-Arguments are passed to commands with this order:    
-`COMMAND HOSTNAME BODY/QUERYSTRING MIDDLEWARE_STDOUT`     
-Where:
-- HOSTNAME: is the hostname from request that you can use to reference for example for find a specific configuration   
-- BODY/QUERYSTRING: is the request body (POST) or querystring (GET), both are in json stringify format (optional) 
-- MIDDLEWARE_STDOUT: is the output for middlewares (optional)
+`curl -XPUT -d "field=mytest" http://localhost:3000/test?id=foo`       
+You should see in the response the body, the middleware response ("Validation done") and the host in this form: "localhost:3000 had Validation done for mytest".     
+Try now with: `curl -d "field=mytest" http://localhost:3000/test?id=bar` and see what happen. The middleware gave back an error from this line:    
+`fmt.Print("MiddlewareFailedValidation Failed")`     
+As you can see, `MiddlewareFailed` is the key used to recognize the error and it is set in .env, `Validation Failed` is the output from middleware.    
+**MUST KNOW** the arguments are passed in a stringify json in the last position of the commands and there're:    
+**headers**: all headers defined for env in `ARGUMENT_HEADERS` (listed as comma separeted string with header name)       
+**body**: the request body as json (optional, if is passed from the request)    
+**querystring**: the request querystring as json (optional, if is passed from the request)   
+**middlewares**: an object with all middleware output not skipped (optional)
 
 ### Code from redis (example with php)
 In redis run this commands:
@@ -233,7 +207,7 @@ For security reason you can run commands using containers, or try: [nsjail](http
 Example: `nsjail -Mo --chroot / -q -- /path/to/your/file args`
 
 ### Example application
-- [Microblog](https://github.com/anddimario/interstellar-microblog)
+- [Microblog](https://github.com/anddimario/interstellar-microblog)    
 
 ### License
 MIT

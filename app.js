@@ -32,7 +32,7 @@ const requestHandler = (request, response) => {
       }
       response.end(process.env.MESSAGES_REDIS_ERROR || 'redis error');
     } else {
-      if (instanceStatus !== "ready") {
+      if (instanceStatus !== 'ready') {
         response.statusCode = 500;
         if (process.env.CUSTOM_RESPONSE_TYPE) {
           response.setHeader('Content-Type', process.env.CUSTOM_RESPONSE_TYPE);
@@ -86,7 +86,30 @@ const requestHandler = (request, response) => {
                 // do whatever we need to in order to respond to this request.
                 // Split the file value
                 const commands = resVhost.commands.split(',');
-                let tasks = [];
+                const tasks = [];
+                const argument = {};
+                // Populate arguments
+                if (!resVhost.code) {
+                  // set headers from config
+                  const argumentHeaders = process.env.ARGUMENT_HEADERS.split(',');
+                  for (let i = 0; i < argumentHeaders.length; i++) {
+                    if (i === 0) {
+                      argument.headers = {};
+                    }
+                    // Middleware should exists
+                    if (request.headers[argumentHeaders[i]]) {
+                      argument.headers[argumentHeaders[i]] = request.headers[argumentHeaders[i]];
+                    }
+                  }
+                  // Pass body or querystring to commands
+                  if (body) {
+                    body = querystring.parse(body);
+                    argument.body = body;
+                  }
+                  if (Object.keys(parsedUrl.query).length > 0) {
+                    argument.querystring = parsedUrl.query;
+                  }
+                }
                 // Create task for waterfall, based on files
                 for (let i = 0; i < commands.length; i++) {
                   let command = `${commands[i]}`;
@@ -96,24 +119,19 @@ const requestHandler = (request, response) => {
                     // replace hostname
                     command = command.replace('HOSTNAME', `${request.headers.host}`);
                   } else { // Execute code from commands in filesystem
-                    command += ` ${request.headers.host}`;
-                    // Pass body or querystring to commands
-                    if (body) {
-                      body = JSON.stringify(querystring.parse(body));
-                      command += ` ${body}`;
-                    } else if (Object.keys(parsedUrl.query).length > 0) {
-                      command += ` ${JSON.stringify(parsedUrl.query)}`;
-                    }
+                    command += ` '${JSON.stringify(argument)}'`;
                   }
-
                   // First task
                   if (i === 0) {
                     tasks.push((callback) => {
                       // Exec the command and response
                       exec(command, { encoding: 'utf8' }, (err, stdout, stderr) => {
                         // Check if stdout return is false, or there's an error, or stderr not empty return and block the waterfall
-                        if (err || stderr || (stdout.indexOf('false') !== -1)) {
-                          callback(stderr);
+                        if (err || stderr) {
+                          callback(stderr || err);
+                        } else if (stdout.indexOf(process.env.MIDDLEWARE_OUTPUT_FAILED) !== -1) {
+                          const message = stdout.replace(process.env.MIDDLEWARE_OUTPUT_FAILED, '')
+                          callback(message);
                         } else {
                           callback(null, stdout);
                         }
@@ -122,15 +140,32 @@ const requestHandler = (request, response) => {
                     });
                   } else { // other tasks
                     tasks.push((previous, callback) => {
-                      // Pass previous results
-                      if (previous.indexOf("Middleware passed") === -1) {
-                        command += ` '${previous}'`;
+                      // Store previeous Middleware result in the argument field
+                      // if result is different from the defined skip keyword
+                      if (previous.indexOf(process.env.MIDDLEWARE_OUTPUT_SKIP) === -1) {
+                        let splittedCommand = command.split(' ');
+                        let actualArgument = splittedCommand[splittedCommand.length - 1];
+                        actualArgument = JSON.parse(actualArgument.replace(/\'/g, '').replace('\'', ''));
+                        if (JSON.stringify(actualArgument.middlewares) === undefined) {
+                          // add this response
+                          actualArgument.middlewares = {};
+                        }
+                        actualArgument.middlewares[i.toString()] = previous;
+                        // Recreate the command
+                        splittedCommand.pop();
+                        splittedCommand = splittedCommand.toString();
+                        command = splittedCommand.replace(/,/g, ' ');
+                        command += ` '${JSON.stringify(actualArgument)}'`;
+
                       }
                       // Exec the command and response
                       exec(command, { encoding: 'utf8' }, (err, stdout, stderr) => {
                         // Check if stdout return is false, or there's an error, or stderr not empty return and block the waterfall
-                        if (err || stderr || (stdout.indexOf('false') !== -1)) {
-                          callback(stderr);
+                        if (err || stderr) {
+                          callback(stderr || err);
+                        } else if (stdout.indexOf(process.env.MIDDLEWARE_OUTPUT_FAILED) !== -1) {
+                          const message = stdout.replace(process.env.MIDDLEWARE_OUTPUT_FAILED, '')
+                          callback(message);
                         } else {
                           callback(null, stdout);
                         }
