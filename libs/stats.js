@@ -11,6 +11,7 @@ const redis = require('redis');
 const redisClient = redis.createClient({ url: process.env.REDIS_URL });
 const exec = require('child_process').exec;
 
+// Increment stats on redis
 function increment(status, instance, site, cb) {
   // Stats for instance by status
   redisClient.incr(`interstellar:stats:${instance}:${status}`);
@@ -29,6 +30,7 @@ function increment(status, instance, site, cb) {
   });
 }
 
+// Manage triggers
 function trigger(status, instance, site, cb) {
   // Get triggers list from redis
   redisClient.keys('interstellar:triggers:*', (err, triggers) => {

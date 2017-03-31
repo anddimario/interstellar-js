@@ -13,6 +13,7 @@ It's an experiment to define a flexible microservices proxy. Microservices run a
 - process only if status is setted ready
 - ping health check
 - trigger that exec commands
+- basic authentication for single route
 
 ### Requirements
 Node.JS v4 and redis
@@ -194,6 +195,13 @@ Options:
 - `instance`: in the form: "instance":"hostname", it is used to watch requests for a specific instance (optional)
 - `status`: for example: "status":200, it is used to fire trigger when the thresold based on request status is reached (optional)
 - `site`: for example: "site":"example.com", watch the requests for a specific site
+
+### Basic authentication (optional)
+You can set for a route if it's protected from basic auth with the redis key in the form `interstellar:vhost:HOST:PATH`, for example:     
+`hset interstellar:vhost:localhost:3000:/ basicAuth true`     
+Basic auth users are stored in redis and for each host, in the form: `interstellar:basic:auth:HOSTNAME:USER`, for example:    
+`set interstellar:basic:auth:localhost:3000:john secret`   
+You can test it on browser, or from curl: `curl http://john:secrset@localhost:3000`
 
 ### Errors logs
 They are stored in redis in the form: `interstellar:logs:INSTANCE:TIMESTAMP string`
