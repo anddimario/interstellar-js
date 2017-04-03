@@ -170,7 +170,11 @@ HEALTH_CHECK_MATCH=/interstellar/status
 You can set a maintenance mode for route if necessary, add in redis for route:    
 `hset interstellar:vhost:localhost:3000:/ maintenance true`    
 Disable maintenance with:   
-`hdel interstellar:vhost:localhost:3000:/ maintenance`    
+`hdel interstellar:vhost:localhost:3000:/ maintenance`   
+To set multiple routes on maintenance, there's the scripts/maintenance. It can enable/disable the mode based on vhost, or if commands contains the string (useful if you have code shared in multiple routes that you will change), example:    
+- Enable maintenance for all routes for example.com vhost: `node scripts/maintenance vhost example.com enable`   
+- Enable maintenance for all routes that use `mid`: `node scripts/maintenance command mid enable`   
+- Disable mode for previous routes: `node scripts/maintenance command mid disable`   
 
 ### Custom system messages (optional)
 Define a custom content type response in .env with:    
