@@ -1,6 +1,6 @@
 # INTERSTELLAR
-HTTP server that exec code and use redis to host/url mapping, started to test [gravity-lang](https://marcobambini.github.io/gravity/) as server language, then the idea is evolved. You can use middleware feature as chain of functions. Tested with: golang, gravity, rust and php.     
-It's an experiment to define a flexible microservices proxy. Microservices run as commands and are in files, so you can use flexible language, no needs hot reload, share middleware from different project, easy deploy.      
+HTTP server that exec code and use redis to host/url mapping. You can use middleware feature as chain of functions. Tested with: golang, gravity, rust, nodejs and php.     
+It's an experiment to define a flexible microservices proxy. Microservices run as commands and are in files, or in redis. You can use flexible language, no needs hot reload, share middleware from different project, easy deploy.      
 
 ### Features
 - multiple languages backend
@@ -14,6 +14,8 @@ It's an experiment to define a flexible microservices proxy. Microservices run a
 - ping health check
 - trigger that exec commands
 - basic authentication for single route
+- optional gzip success response
+- minimal requirements
 
 ### Requirements
 Node.JS v4 and redis
@@ -128,15 +130,27 @@ As you can see, `MiddlewareFailed` is the key used to recognize the error and it
 **querystring**: the request querystring as json (optional, if is passed from the request)   
 **middlewares**: an object with all middleware output not skipped (optional)
 
-### Code from redis (example with php)
+### Code from redis (example with node.js)
 In redis run this commands:
 ```
-hset interstellar:vhost:localhost:3000:/redis commands "echo CUSTOM_CODE | php"
+hset interstellar:vhost:localhost:3000:/redis commands "node -e CUSTOM_CODE"
 hset interstellar:vhost:localhost:3000:/redis method GET
-hset interstellar:vhost:localhost:3000:/redis code "<?php \\$i=5+2; echo 'Response from HOSTNAME is: '.\\$i;"
+hset interstellar:vhost:localhost:3000:/redis code0 "const test='INTERSTELLAR.VARIABLES';const parsed=JSON.parse(decodeURIComponent(test));console.log(parsed.headers.host);"
 ```
 Then with curl: `curl localhost:3000/redis`    
-__IMP__ Note that `HOSTNAME` is replaced from interstellar and `CUSTOM_CODE` in commands is where interstellare replace your code
+Try php:
+```
+hset interstellar:vhost:localhost:3000:/redis commands "php -r CUSTOM_CODE"
+hset interstellar:vhost:localhost:3000:/redis code0 "\\$test='INTERSTELLAR.VARIABLES';\\$decoded=urldecode(\\$test);echo \\$decoded;"
+```
+Try both:   
+```
+hset interstellar:vhost:localhost:3000:/redis commands "node -e CUSTOM_CODE,php -r CUSTOM_CODE"
+hset interstellar:vhost:localhost:3000:/redis code0 "const test='INTERSTELLAR.VARIABLES';const parsed=JSON.parse(decodeURIComponent(test));console.log(parsed.headers.host);"
+hset interstellar:vhost:localhost:3000:/redis code1 "\\$test='INTERSTELLAR.VARIABLES';\\$decoded=urldecode(\\$test);echo \\$decoded;"
+```
+__IMP__ Note that `CUSTOM_CODE` in commands is where interstellare replace your code in commands and `INTERSTELLAR.VARIABLES` is replaced from interstellar variables object, with headers, body, querystring and middleware response. The `INTERSTELLAR.VARIABLES` is encoded with `encodeURIComponent()` this allow a simple escaped, but need `decodeURIComponent()`, as you can see in code, to get the object.    
+Code are stored with index as commands' references, for example in "both" example, `code0` is used by `node -e CUSTOM_CODE` first element in commands.
 
 ### Setup response content type header (optional)
 You can setup response content type header with this redis hset:    
@@ -207,6 +221,9 @@ Basic auth users are stored in redis and for each host, in the form: `interstell
 `set interstellar:basic:auth:localhost:3000:john secret`   
 You can test it on browser, or from curl: `curl http://john:secrset@localhost:3000`
 
+### GZIP (optional)
+In .env add: `GZIP=true`
+
 ### Errors logs
 They are stored in redis in the form: `interstellar:logs:INSTANCE:TIMESTAMP string`
 
@@ -219,7 +236,29 @@ For security reason you can run commands using containers, or try: [nsjail](http
 Example: `nsjail -Mo --chroot / -q -- /path/to/your/file args`
 
 ### Example application
-- [Microblog](https://github.com/anddimario/interstellar-microblog)    
+- [Microblog](https://github.com/anddimario/interstellar-microblog)  
+
+### Benchmark
+Machine: 
+```
+Intel(R) Celeron(R) CPU  N2840  @ 2.16GHz 32bits 2GB(RAM)
+Ubuntu 16.04
+Node v4.2.6
+Redis 3.0.6
+```
+Used [Microblog](https://github.com/anddimario/interstellar-microblog) 
+```
+wrk -t3 -c1000 -d10s http://localhost:3000/?title=prova
+Running 10s test @ http://localhost:3000/?title=prova
+  3 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   917.20ms  275.45ms   1.91s    63.87%
+    Req/Sec    69.84     95.76   484.00     83.65%
+  957 requests in 10.10s, 97.20KB read
+  Socket errors: connect 0, read 0, write 0, timeout 63
+Requests/sec:     94.78
+Transfer/sec:      9.63KB
+```
 
 ### License
 MIT

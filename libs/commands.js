@@ -13,6 +13,7 @@ const async = require('async');
 const stats = require('./stats');
 const redis = require('redis');
 const redisClient = redis.createClient({ url: process.env.REDIS_URL });
+const zlib = require('zlib');
 
 // Create the commands array based on defined informations
 function createCommand(resVhost, body, parsedUrl, headers) {
@@ -25,40 +26,41 @@ function createCommand(resVhost, body, parsedUrl, headers) {
   const tasks = [];
   const argument = {};
   // Populate arguments
-  if (!resVhost.code) {
-    // set headers from config
-    const argumentHeaders = process.env.ARGUMENT_HEADERS.split(',');
-    for (let i = 0; i < argumentHeaders.length; i++) {
-      if (i === 0) {
-        argument.headers = {};
-      }
-      // Middleware should exists
-      if (headers[argumentHeaders[i]]) {
-        argument.headers[argumentHeaders[i]] = headers[argumentHeaders[i]];
-      }
+  // set headers from config
+  const argumentHeaders = process.env.ARGUMENT_HEADERS.split(',');
+  for (let i = 0; i < argumentHeaders.length; i++) {
+    if (i === 0) {
+      argument.headers = {};
     }
-    // Pass body or querystring to commands
-    if (body) {
-      body = querystring.parse(body);
-      argument.body = body;
+    // Middleware should exists
+    if (headers[argumentHeaders[i]]) {
+      argument.headers[argumentHeaders[i]] = headers[argumentHeaders[i]];
     }
-    if (Object.keys(parsedUrl.query).length > 0) {
-      argument.querystring = parsedUrl.query;
-    }
+  }
+  // Pass body or querystring to commands
+  if (body) {
+    body = querystring.parse(body);
+    argument.body = body;
+  }
+  if (Object.keys(parsedUrl.query).length > 0) {
+    argument.querystring = parsedUrl.query;
   }
   // Create task for waterfall, based on files
   for (let i = 0; i < commands.length; i++) {
     let command = `${commands[i]}`;
+    const codeReference = `code${i}`;
     // Check if the code is stored in redis and try to replace
-    if (resVhost.code) {
-      command = command.replace('CUSTOM_CODE', `"${resVhost.code}"`);
-      // replace hostname
-      command = command.replace('HOSTNAME', `${headers.host}`);
+    if (resVhost[codeReference]) {
+      command = command.replace('CUSTOM_CODE', `"${resVhost[codeReference]}"`);
     } else { // Execute code from commands in filesystem
       command += ` '${JSON.stringify(argument)}'`;
     }
     // First task
     if (i === 0) {
+      if (resVhost[codeReference]) {
+        // replace variables in code
+        command = command.replace(/INTERSTELLAR.VARIABLES/g, `${encodeURIComponent(JSON.stringify(argument).toString())}`);
+      }
       tasks.push((callback) => {
         // Exec the command and response
         exec(command, { encoding: 'utf8' }, (err, stdout, stderr) => {
@@ -79,19 +81,31 @@ function createCommand(resVhost, body, parsedUrl, headers) {
         // Store previeous Middleware result in the argument field
         // if result is different from the defined skip keyword
         if (previous.indexOf(process.env.MIDDLEWARE_OUTPUT_SKIP) === -1) {
-          let splittedCommand = command.split(' ');
-          let actualArgument = splittedCommand[splittedCommand.length - 1];
-          actualArgument = JSON.parse(actualArgument.replace(/\'/g, '').replace('\'', ''));
-          if (JSON.stringify(actualArgument.middlewares) === undefined) {
-            // add this response
-            actualArgument.middlewares = {};
+          // Check if the code is stored in redis and try to replace
+          if (resVhost[codeReference]) {
+            const actualArgument = argument;
+            if (JSON.stringify(actualArgument.middlewares) === undefined) {
+              // add this response
+              actualArgument.middlewares = {};
+            }
+            actualArgument.middlewares[i.toString()] = previous;
+            // replace variables in code
+            command = command.replace(/INTERSTELLAR.VARIABLES/g, `${JSON.stringify(actualArgument)}`);
+          } else {
+            let splittedCommand = command.split(' ');
+            let actualArgument = splittedCommand[splittedCommand.length - 1];
+            actualArgument = JSON.parse(actualArgument.replace(/\'/g, ''));
+            if (JSON.stringify(actualArgument.middlewares) === undefined) {
+              // add this response
+              actualArgument.middlewares = {};
+            }
+            actualArgument.middlewares[i.toString()] = previous;
+            // Recreate the command
+            splittedCommand.pop();
+            splittedCommand = splittedCommand.toString();
+            command = splittedCommand.replace(/,/g, ' ');
+            command += ` '${JSON.stringify(actualArgument)}'`;
           }
-          actualArgument.middlewares[i.toString()] = previous;
-          // Recreate the command
-          splittedCommand.pop();
-          splittedCommand = splittedCommand.toString();
-          command = splittedCommand.replace(/,/g, ' ');
-          command += ` '${JSON.stringify(actualArgument)}'`;
 
         }
         // Exec the command and response
@@ -135,8 +149,19 @@ function makeExecution(request, response, hostname, parsedUrl, resVhost) {
           }
         });
       } else {
-        response.end(results);
-        stats.increment(500, hostname, request.headers.host, (err) => {
+        if (process.env.GZIP) {
+          response.setHeader('Content-Encoding', 'gzip');
+          zlib.gzip(results, (err, res) => {
+            if (err) {
+              return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
+            } else {
+              response.end(res);
+            }
+          });
+        } else {
+          response.end(results);
+        }
+        stats.increment(200, hostname, request.headers.host, (err) => {
           if (err) {
             return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
           }

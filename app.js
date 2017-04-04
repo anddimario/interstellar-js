@@ -14,6 +14,7 @@ const url = require('url');
 const os = require('os');
 const commands = require('./libs/commands');
 const auth = require('basic-auth');
+const cluster = require('cluster');
 
 // Get instance hostname
 const hostname = os.hostname();
@@ -115,10 +116,22 @@ setInterval(() => {
   redisClient.expire(`interstellar:instances:${hostname}`, 60);
 }, 50000);
 
-const server = http.createServer(requestHandler);
-
-server.listen(process.env.PORT, (err) => {
-  if (err) {
-    return redis.set(`interstellar:logs:${hostname}:${Date.now}`, err);
+// Cluster mode
+const numCPUs = os.cpus().length;
+if (cluster.isMaster) {
+  // Fork workers
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
   }
-});
+  cluster.on('exit', function (worker /*, code, signal*/) {
+    return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, `worker ${worker.process.pid} died`);
+  });
+} else {
+  const server = http.createServer(requestHandler);
+
+  server.listen(process.env.PORT, (err) => {
+    if (err) {
+      return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
+    }
+  });
+}
