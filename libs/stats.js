@@ -5,10 +5,7 @@
  */
 
 // Requirements
-require('dotenv').config();
-
-const redis = require('redis');
-const redisClient = redis.createClient({ url: process.env.REDIS_URL });
+const redisClient = require('./redis');
 const exec = require('child_process').exec;
 const async = require('async');
 
@@ -22,82 +19,53 @@ function increment(status, instance, site, cb) {
   redisClient.incr(`interstellar:stats:${status}`);
   // General stats for instance and site by status
   redisClient.incr(`interstellar:stats:${status}:${site}`);
-  trigger(status, instance, site, 0, (err) => {
-    if (err) {
-      return cb(err);
-    } else {
-      return cb(null);
-    }
-  });
+  if (process.env.TRIGGERS) {
+    trigger(status, instance, site, 0, (err) => {
+      if (err) {
+        return cb(err);
+      } else {
+        return cb(null);
+      }
+    });
+  }
 }
 
 // Manage triggers
 function trigger(status, instance, site, cursor, cb) {
-  // Get triggers list from redis
-  let iterate = true;
-  const totalTriggers = [];
-  async.whilst(
-    function () { return iterate !== false; },
-    function (callback) {
-      redisClient.scan(cursor, 'MATCH', 'interstellar:triggers:*', (err, triggers) => {
-        if (err) {
-          return callback(err);
-        } else {
-          if (triggers[0] === '0') {
-            // Stop when scan iteration is over
-            iterate = false;
-          } else {
-            // Update cursor
-            cursor = triggers[0];
-          }
-          // Populate the totalTriggers
-          for (let i = 0; i < triggers[1].length; i++) {
-            totalTriggers.push(triggers[1][i]);
-          }
-          callback(null, 'done');
-        }
-      });
-    },
-    function (err) {
-      if (err) {
-        return cb(err);
-      } else {
-        // scans triggers
-        totalTriggers.forEach(function (string) {
-          // Get the key value and check thresold
-          redisClient.get(string, (err, value) => {
-            if (err) {
-              return cb(err);
-            } else {
-              const trigger = JSON.parse(value);
-              // Get the key and update it 
-              redisClient.incr(trigger.key);
-              if (trigger.global) { // global
-                runTrigger(trigger, (err) => {
-                  return cb(err);
-                });
-              } else if (trigger.instance && (instance === trigger.instance)) {
-                // run trigger if instance and if is actual instance that serve the request
-                runTrigger(trigger, (err) => {
-                  return cb(err);
-                });
-              } else if (trigger.status && (status === trigger.status)) {
-                // if trigger is set on status and status is the actual request status
-                runTrigger(trigger, (err) => {
-                  return cb(err);
-                });
-              } else if (trigger.site && (site === trigger.site)) {
-                // if trigger is set on site and site is the actual request site
-                runTrigger(trigger, (err) => {
-                  return cb(err);
-                });
-              }
-            }
+  redisClient.hgetall('interstellar:triggers', (err, triggers) => {
+    if (err) {
+      return cb(err);
+    } else if (triggers === null) {
+      return cb(null);
+    } else {
+      for (const i in triggers) {
+        const value = triggers[i];
+        const trigger = JSON.parse(value);
+        // Get the key and update it 
+        redisClient.incr(trigger.key);
+        if (trigger.global) { // global
+          runTrigger(trigger, (err) => {
+            return cb(err);
           });
-        });
+        } else if (trigger.instance && (instance === trigger.instance)) {
+          // run trigger if instance and if is actual instance that serve the request
+          runTrigger(trigger, (err) => {
+            return cb(err);
+          });
+        } else if (trigger.status && (status === trigger.status)) {
+          // if trigger is set on status and status is the actual request status
+          runTrigger(trigger, (err) => {
+            return cb(err);
+          });
+        } else if (trigger.site && (site === trigger.site)) {
+          // if trigger is set on site and site is the actual request site
+          runTrigger(trigger, (err) => {
+            return cb(err);
+          });
+        }
       }
     }
-  );
+  });
 }
 
 function runTrigger(trigger, cb) {

@@ -11,8 +11,7 @@ const querystring = require('querystring');
 const exec = require('child_process').exec;
 const async = require('async');
 const stats = require('./stats');
-const redis = require('redis');
-const redisClient = redis.createClient({ url: process.env.REDIS_URL });
+const redisClient = require('./redis');
 const zlib = require('zlib');
 
 // Create the commands array based on defined informations
@@ -130,7 +129,8 @@ function createCommand(resVhost, body, parsedUrl, headers) {
 function makeExecution(request, response, hostname, parsedUrl, resVhost) {
   const body = [];
   request.on('error', function (err) {
-    redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
+    const date = Date.now;
+    redisClient.set(`interstellar:logs:${hostname}:${date}`, err);
   }).on('data', function (chunk) {
     body.push(chunk);
   }).on('end', function () {
@@ -141,19 +141,31 @@ function makeExecution(request, response, hostname, parsedUrl, resVhost) {
         response.setHeader('Content-Type', resVhost.content_type);
       }
       if (err) {
+        if (process.env.STATS) {
+          stats.increment(500, hostname, request.headers.host, (err) => {
+            if (err) {
+              const date = Date.now;
+              return redisClient.set(`interstellar:logs:${hostname}:${date}`, err);
+            }
+          });
+        }
         response.statusCode = 500;
         response.end(err);
-        stats.increment(500, hostname, request.headers.host, (err) => {
-          if (err) {
-            return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
-          }
-        });
       } else {
+        if (process.env.STATS) {
+          stats.increment(200, hostname, request.headers.host, (err) => {
+            if (err) {
+              const date = Date.now;
+              return redisClient.set(`interstellar:logs:${hostname}:${date}`, err);
+            }
+          });
+        }
         if (process.env.GZIP) {
           response.setHeader('Content-Encoding', 'gzip');
           zlib.gzip(results, (err, res) => {
             if (err) {
-              return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
+              const date = Date.now;
+              return redisClient.set(`interstellar:logs:${hostname}:${date}`, err);
             } else {
               response.end(res);
             }
@@ -161,11 +173,6 @@ function makeExecution(request, response, hostname, parsedUrl, resVhost) {
         } else {
           response.end(results);
         }
-        stats.increment(200, hostname, request.headers.host, (err) => {
-          if (err) {
-            return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
-          }
-        });
       }
     });
   });

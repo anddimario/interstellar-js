@@ -8,8 +8,7 @@
 require('dotenv').config();
 
 const http = require('http');
-const redis = require('redis');
-const redisClient = redis.createClient({ url: process.env.REDIS_URL });
+const redisClient = require('./libs/redis');
 const url = require('url');
 const os = require('os');
 const commands = require('./libs/commands');
@@ -124,14 +123,16 @@ if (cluster.isMaster) {
     cluster.fork();
   }
   cluster.on('exit', function (worker /*, code, signal*/) {
-    return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, `worker ${worker.process.pid} died`);
+    const date = Date.now;
+    return redisClient.set(`interstellar:logs:${hostname}:${date}`, `worker ${worker.process.pid} died`);
   });
 } else {
   const server = http.createServer(requestHandler);
 
   server.listen(process.env.PORT, (err) => {
     if (err) {
-      return redisClient.set(`interstellar:logs:${hostname}:${Date.now}`, err);
+      const date = Date.now;
+      return redisClient.set(`interstellar:logs:${hostname}:${date}`, err);
     }
   });
 }

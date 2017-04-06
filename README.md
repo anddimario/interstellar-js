@@ -200,20 +200,6 @@ Then there are this defaults messages that you can customize with a variable in 
 - *not found*: `MESSAGES_NOT_FOUND` back when route not found    
 - *maintenance*: `MESSAGES_MAINTENANCE_ACTIVE` back if maintenance is active for route
 
-### Triggers
-You can set a trigger that exec a commands when the thresold is reached, for example create a trigger with this command in redis:    
-`set interstellar:triggers:my_great_trigger '{"min":5,"key":"interstellar:variables:triggers:test","thresold":5,"command":"touch /tmp/alert","global":true}'`     
-In this way you have defined a trigger that exec `touch /tmp/alert` if there are 5 global request in 5 minutes.    
-Options:
-- `min`: the interval in minutes used to reference for trigger count that is refreshed when the time expire
-- `key`: the temporary key used to store the count for this trigger
-- `thresold`: when this count is reached the command is fired
-- `command`: the command to fire when thresold is reached
-- `global`: if it is setted as true, it's a global trigger that refer to all requests in all instances and for all sites (optional)
-- `instance`: in the form: "instance":"hostname", it is used to watch requests for a specific instance (optional)
-- `status`: for example: "status":200, it is used to fire trigger when the thresold based on request status is reached (optional)
-- `site`: for example: "site":"example.com", watch the requests for a specific site
-
 ### Basic authentication (optional)
 You can set for a route if it's protected from basic auth with the redis key in the form `interstellar:vhost:HOST:PATH`, for example:     
 `hset interstellar:vhost:localhost:3000:/ basicAuth true`     
@@ -227,9 +213,24 @@ In .env add: `GZIP=true`
 ### Errors logs
 They are stored in redis in the form: `interstellar:logs:INSTANCE:TIMESTAMP string`
 
-### Stats
-You can see them in redis with: `KEYS interstellar:stats:*`     
+### Stats (optional)
+To enable stats add in .env: `STATS=true`. You can see them in redis with: `KEYS interstellar:stats:*`     
 Stats are for status code, instance, sites and in general.
+
+### Triggers (optional)
+To enable stats add in .env: `TRIGGERS=true`, stats are required. 
+You can set a trigger that exec a commands when the thresold is reached, for example create a trigger with this command in redis:    
+`hset interstellar:triggers my_great_trigger '{"min":5,"key":"interstellar:variables:triggers:test","thresold":5,"command":"touch /tmp/alert","global":true}'`     
+In this way you have defined a trigger that exec `touch /tmp/alert` if there are 5 global request in 5 minutes.    
+Options:
+- `min`: the interval in minutes used to reference for trigger count that is refreshed when the time expire
+- `key`: the temporary key used to store the count for this trigger
+- `thresold`: when this count is reached the command is fired
+- `command`: the command to fire when thresold is reached
+- `global`: if it is setted as true, it's a global trigger that refer to all requests in all instances and for all sites (optional)
+- `instance`: in the form: "instance":"hostname", it is used to watch requests for a specific instance (optional)
+- `status`: for example: "status":200, it is used to fire trigger when the thresold based on request status is reached (optional)
+- `site`: for example: "site":"example.com", watch the requests for a specific site
 
 ### Security
 For security reason you can run commands using containers, or try: [nsjail](https://github.com/google/nsjail)    
@@ -239,26 +240,45 @@ Example: `nsjail -Mo --chroot / -q -- /path/to/your/file args`
 - [Microblog](https://github.com/anddimario/interstellar-microblog)  
 
 ### Benchmark
-Machine: 
 ```
 Intel(R) Celeron(R) CPU  N2840  @ 2.16GHz 32bits 2GB(RAM)
 Ubuntu 16.04
 Node v4.2.6
 Redis 3.0.6
+Siege 3.0.8
 ```
-Used [Microblog](https://github.com/anddimario/interstellar-microblog) 
+Backend [Microblog](https://github.com/anddimario/interstellar-microblog) 
 ```
-wrk -t3 -c1000 -d10s http://localhost:3000/?title=prova
-Running 10s test @ http://localhost:3000/?title=prova
-  3 threads and 1000 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   917.20ms  275.45ms   1.91s    63.87%
-    Req/Sec    69.84     95.76   484.00     83.65%
-  957 requests in 10.10s, 97.20KB read
-  Socket errors: connect 0, read 0, write 0, timeout 63
-Requests/sec:     94.78
-Transfer/sec:      9.63KB
+siege -c50 -b -t1M http://localhost:3000/?title=prova
+Transactions:		        5240 hits
+Availability:		      100.00 %
+Elapsed time:		       59.26 secs
+Data transferred:	        0.02 MB
+Response time:		        0.56 secs
+Transaction rate:	       88.42 trans/sec
+Throughput:		        0.00 MB/sec
+Concurrency:		       49.73
+Successful transactions:        5240
+Failed transactions:	           0
+Longest transaction:	        0.73
+Shortest transaction:	        0.29
 ```
+**NOTE** This test is done with all functionality (stats and triggers too), here a test without triggers and stats:
+```
+Transactions:		        7633 hits
+Availability:		      100.00 %
+Elapsed time:		       59.14 secs
+Data transferred:	        0.04 MB
+Response time:		        0.39 secs
+Transaction rate:	      129.07 trans/sec
+Throughput:		        0.00 MB/sec
+Concurrency:		       49.80
+Successful transactions:        7633
+Failed transactions:	           0
+Longest transaction:	        0.54
+Shortest transaction:	        0.19
+```
+
 
 ### License
 MIT
