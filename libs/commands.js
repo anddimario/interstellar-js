@@ -12,10 +12,11 @@ const exec = require('child_process').exec;
 const async = require('async');
 const stats = require('./stats');
 const redisClient = require('./redis');
+const validation = require('./validation');
 const zlib = require('zlib');
 
 // Create the commands array based on defined informations
-function createCommand(resVhost, body, parsedUrl, headers) {
+function createCommand(resVhost, body, parsedUrl, headers, response) {
 
   body = Buffer.concat(body).toString();
   // At this point, we have the headers, method, url and body, and can now
@@ -43,6 +44,12 @@ function createCommand(resVhost, body, parsedUrl, headers) {
   }
   if (Object.keys(parsedUrl.query).length > 0) {
     argument.querystring = parsedUrl.query;
+  }
+  // Check validation
+  const validationCheck = validation.check(argument.body, argument.querystring, resVhost);
+  if (validationCheck.status === false) {
+    response.statusCode = 500;
+    response.end(`Validation errors: ${JSON.stringify(validationCheck.reasons)}`);
   }
   // Create task for waterfall, based on files
   for (let i = 0; i < commands.length; i++) {
@@ -134,7 +141,7 @@ function makeExecution(request, response, hostname, parsedUrl, resVhost) {
   }).on('data', function (chunk) {
     body.push(chunk);
   }).on('end', function () {
-    const tasks = createCommand(resVhost, body, parsedUrl, request.headers);
+    const tasks = createCommand(resVhost, body, parsedUrl, request.headers, response);
     async.waterfall(tasks, (err, results) => {
       // Check and set content type for response
       if (resVhost.content_type) {

@@ -10,13 +10,14 @@ It's an experiment to define a flexible microservices proxy. Microservices run a
 - status health check
 - maintenance mode for single route
 - custom response content type
-- process only if status is setted ready
-- ping health check
 - trigger that exec commands
 - basic authentication for single route
 - optional gzip success response
 - rate limiter on route based on ip or header
 - restrictions on route based on ip or header
+- body and querystring validation
+- process only if status is setted ready
+- ping health check
 - minimal requirements
 
 ### Requirements
@@ -153,6 +154,25 @@ hset interstellar:vhost:localhost:3000:/redis code1 "\\$test='INTERSTELLAR.VARIA
 ```
 __IMP__ Note that `CUSTOM_CODE` in commands is where interstellare replace your code in commands and `INTERSTELLAR.VARIABLES` is replaced from interstellar variables object, with headers, body, querystring and middleware response. The `INTERSTELLAR.VARIABLES` is encoded with `encodeURIComponent()` this allow a simple escaped, but need `decodeURIComponent()`, as you can see in code, to get the object.    
 Code are stored with index as commands' references, for example in "both" example, `code0` is used by `node -e CUSTOM_CODE` first element in commands.
+
+### Validation (using go example above) (optional)
+The validation use [https://github.com/chriso/validator.js](https://github.com/chriso/validator.js)    
+For validations, in redis object must be validateBody (if you need to validate body) and validateQuery (if you need to validate querystring), the value is a JSON stringify array of object that could have different form:
+- `{field:"name",validator:"isEmail"}`: basic validator, in this example isEmail
+- `{field:"name",validator:"isIn",compare:[...]}`: `isIn` and maybe other validator has a different form, in this case compare is an array of strings, used for check
+- `{field:"name",validator:"isLength",options:{....}}`: some validators, and one is `isLength`, could have options as object
+
+Now add for example: 
+```
+hset interstellar:vhost:localhost:3000:/test validateBody '[{"field":"field","validator":"isIn","compare":["mytest","test"],"message":"Not in"}]'
+hset interstellar:vhost:localhost:3000:/test validateQuery '[{"field":"id","validator":"isLength","options":{"min":"2"},"message":"Wrong length"}}]'
+```
+And try this curl:
+```
+curl -XPUT -d "field=mytest" http://localhost:3000/test?id=foo
+curl -XPUT -d "field=myst" http://localhost:3000/test?id=foo
+curl -XPUT -d "field=mytest" http://localhost:3000/test?id=f
+```
 
 ### Setup response content type header (optional)
 You can setup response content type header with this redis hset:    

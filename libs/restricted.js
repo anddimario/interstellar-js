@@ -1,7 +1,7 @@
 'use strict';
 /*
  * INUTERSTELLAR
- * ratelimit library
+ * restriction library
  */
 
 // Requirements
