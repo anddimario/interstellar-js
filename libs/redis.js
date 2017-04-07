@@ -1,7 +1,14 @@
-require('dotenv').config();
-var redis = require('redis');
+'use strict';
+/*
+ * INUTERSTELLAR
+ * redis library
+ */
 
-var redisClient = redis.createClient({url: process.env.REDIS_URL});
+// Requirements
+require('dotenv').config();
+const redis = require('redis');
+
+const redisClient = redis.createClient({url: process.env.REDIS_URL});
 
 redisClient.on('error', function (err) {
   console.log('Error Redis ' + err);

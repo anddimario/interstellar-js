@@ -14,6 +14,8 @@ const os = require('os');
 const commands = require('./libs/commands');
 const auth = require('basic-auth');
 const cluster = require('cluster');
+const ratelimit = require('./libs/ratelimit');
+const restricted = require('./libs/restricted');
 
 // Get instance hostname
 const hostname = os.hostname();
@@ -91,6 +93,25 @@ const requestHandler = (request, response) => {
                       commands.makeExecution(request, response, hostname, parsedUrl, resVhost);
                     }
                   });
+                }
+              } else if (resVhost.ratelimit) {
+                // Check if it's added ratelimit
+                ratelimit.check(request, response, resVhost, parsedUrl, (err, allowed) => {
+                  if (err) {
+                    response.end(err);
+                  } else {
+                    // execute command
+                    commands.makeExecution(request, response, hostname, parsedUrl, resVhost);
+                  }
+                });
+              } else if (resVhost.restricted) {
+                // Check if it's added restricted
+                // return true if it's in
+                if (restricted.check(request, resVhost.restricted)) {
+                  commands.makeExecution(request, response, hostname, parsedUrl, resVhost);
+                } else {
+                  response.statusCode = 401;
+                  response.end('Access denied');
                 }
               } else { // execute normal request
                 commands.makeExecution(request, response, hostname, parsedUrl, resVhost);

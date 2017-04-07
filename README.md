@@ -15,6 +15,8 @@ It's an experiment to define a flexible microservices proxy. Microservices run a
 - trigger that exec commands
 - basic authentication for single route
 - optional gzip success response
+- rate limiter on route based on ip or header
+- restrictions on route based on ip or header
 - minimal requirements
 
 ### Requirements
@@ -209,6 +211,23 @@ You can test it on browser, or from curl: `curl http://john:secrset@localhost:30
 
 ### GZIP (optional)
 In .env add: `GZIP=true`
+
+### Rate Limiter (optional)
+Set a limit for single route with, for example:    
+`hset interstellar:vhost:localhost:3000:/ ratelimit "60,ip,5"`    
+in the form: "time,reference,requests", where:
+- time: interval in seconds where requests are checked
+- reference: could be `ip`, to base limit on client ip, or an header name
+- requests: number of requests allowed
+
+### Restricted (optional)
+Set a limit for single route with, for example:    
+`hset interstellar:vhost:localhost:3000:/ restricted "x-interstellar:mykey1,mykey2"`   
+in the form: "reference:value", where:
+- reference: could be `ip`, to base restriction on client ip, or an header name
+- value: is a comma separated list of allowed value    
+
+Try the restriction above with: `curl localhost:3000 -H "x-interstellar:mykey1"`
 
 ### Errors logs
 They are stored in redis in the form: `interstellar:logs:INSTANCE:TIMESTAMP string`

@@ -7,7 +7,6 @@
 // Requirements
 const redisClient = require('./redis');
 const exec = require('child_process').exec;
-const async = require('async');
 
 // Increment stats on redis
 function increment(status, instance, site, cb) {

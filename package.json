@@ -12,6 +12,8 @@
     "async": "^2.1.5",
     "basic-auth": "^1.1.0",
     "dotenv": "^4.0.0",
-    "redis": "^2.6.5"
+    "ratelimiter": "^3.0.3",
+    "redis": "^2.6.5",
+    "validator": "^7.0.0"
   }
 }
