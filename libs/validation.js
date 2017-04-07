@@ -11,7 +11,7 @@ const validator = require('validator');
 function check(body, querystring, resVhost) {
   // Check if need validation
   if (resVhost.validateBody || resVhost.validateQuery) {
-    let result = {
+    const result = {
       status: true
     };
     // Get validation informations
@@ -34,7 +34,7 @@ function check(body, querystring, resVhost) {
         // If false, valid must be false
         if (tmpTest === false) {
           result.status = false;
-          result.reasons.push({field: validateBody[i].field, message: validateBody[i].message})
+          result.reasons.push({field: validateBody[i].field, message: validateBody[i].message});
         }
       }
     }
@@ -55,7 +55,7 @@ function check(body, querystring, resVhost) {
         // If false, valid must be false
         if (tmpTest === false) {
           result.status = false;
-          result.reasons.push({field: validateQuery[i].field, message: validateQuery[i].message})
+          result.reasons.push({field: validateQuery[i].field, message: validateQuery[i].message});
         }
       }
     }
