@@ -9,6 +9,7 @@ require('dotenv').config();
 
 const querystring = require('querystring');
 const exec = require('child_process').exec;
+const spawn = require('child_process').spawn;
 const async = require('async');
 const stats = require('./stats');
 const redisClient = require('./redis');
@@ -67,21 +68,34 @@ function createCommand(resVhost, body, parsedUrl, headers, response) {
         // replace variables in code
         command = command.replace(/INTERSTELLAR.VARIABLES/g, `${encodeURIComponent(JSON.stringify(argument).toString())}`);
       }
-      tasks.push((callback) => {
-        // Exec the command and response
-        exec(command, { encoding: 'utf8' }, (err, stdout, stderr) => {
-          // Check if stdout return is false, or there's an error, or stderr not empty return and block the waterfall
-          if (err || stderr) {
-            callback(stderr || err);
-          } else if (stdout.indexOf(process.env.MIDDLEWARE_OUTPUT_FAILED) !== -1) {
-            const message = stdout.replace(process.env.MIDDLEWARE_OUTPUT_FAILED, '')
-            callback(message);
-          } else {
-            callback(null, stdout);
-          }
-
+      if (resVhost.job) {
+        // Need split because spawn required it
+        const splittedCommand = command.split(' ');
+        tasks.push((callback) => {
+          const child = spawn(splittedCommand[0], [splittedCommand[1], splittedCommand[2]], {
+            detached: true,
+            stdio: 'ignore'
+          });
+          child.unref();
+          callback(null, 'done');
         });
-      });
+      } else {
+        tasks.push((callback) => {
+          // Exec the command and response
+          exec(command, { encoding: 'utf8' }, (err, stdout, stderr) => {
+            // Check if stdout return is false, or there's an error, or stderr not empty return and block the waterfall
+            if (err || stderr) {
+              callback(stderr || err);
+            } else if (stdout.indexOf(process.env.MIDDLEWARE_OUTPUT_FAILED) !== -1) {
+              const message = stdout.replace(process.env.MIDDLEWARE_OUTPUT_FAILED, '')
+              callback(message);
+            } else {
+              callback(null, stdout);
+            }
+
+          });
+        });
+      }
     } else { // other tasks
       tasks.push((previous, callback) => {
         // Store previeous Middleware result in the argument field
