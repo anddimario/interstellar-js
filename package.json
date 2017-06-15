@@ -1,7 +1,7 @@
 {
   "name": "inutile",
   "version": "0.0.1",
-  "description": "Http server that exec cmd",
+  "description": "Microservices HTTP proxy on redis",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -14,6 +14,7 @@
     "dotenv": "^4.0.0",
     "ratelimiter": "^3.0.3",
     "redis": "^2.6.5",
+    "request": "^2.81.0",
     "validator": "^7.0.0"
   }
 }

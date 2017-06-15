@@ -15,6 +15,7 @@ const stats = require('./stats');
 const redisClient = require('./redis');
 const validation = require('./validation');
 const zlib = require('zlib');
+const request = require('request');
 
 // Create the commands array based on defined informations
 function createCommand(resVhost, body, parsedUrl, headers, response) {
@@ -68,7 +69,7 @@ function createCommand(resVhost, body, parsedUrl, headers, response) {
         // replace variables in code
         command = command.replace(/INTERSTELLAR.VARIABLES/g, `${encodeURIComponent(JSON.stringify(argument).toString())}`);
       }
-      if (resVhost.job) {
+      if (resVhost.type === 'job') {
         // Need split because spawn required it
         const splittedCommand = command.split(' ');
         tasks.push((callback) => {
@@ -79,6 +80,28 @@ function createCommand(resVhost, body, parsedUrl, headers, response) {
           child.unref();
           callback(null, 'done');
         });
+      } else if (resVhost.type === 'http') {
+        tasks.push((callback) => {
+          const options = {
+            method: resVhost.method,
+            url: resVhost.commands
+          };
+          console.log(body);
+          if (body) {
+            options.form = body;
+            options.json = true;
+          }
+          if (querystring) {
+            options.qs = body;
+          }
+          request(options, (err, httpResponse, resBody) => {
+            if (err) {
+              callback(err);
+            } else {
+              callback(null, resBody);
+            }
+          });
+        });
       } else {
         tasks.push((callback) => {
           // Exec the command and response
@@ -87,7 +110,7 @@ function createCommand(resVhost, body, parsedUrl, headers, response) {
             if (err || stderr) {
               callback(stderr || err);
             } else if (stdout.indexOf(process.env.MIDDLEWARE_OUTPUT_FAILED) !== -1) {
-              const message = stdout.replace(process.env.MIDDLEWARE_OUTPUT_FAILED, '')
+              const message = stdout.replace(process.env.MIDDLEWARE_OUTPUT_FAILED, '');
               callback(message);
             } else {
               callback(null, stdout);
@@ -98,7 +121,7 @@ function createCommand(resVhost, body, parsedUrl, headers, response) {
       }
     } else { // other tasks
       tasks.push((previous, callback) => {
-        // Store previeous Middleware result in the argument field
+        // Store previous Middleware result in the argument field
         // if result is different from the defined skip keyword
         if (previous.indexOf(process.env.MIDDLEWARE_OUTPUT_SKIP) === -1) {
           // Check if the code is stored in redis and try to replace
@@ -134,7 +157,7 @@ function createCommand(resVhost, body, parsedUrl, headers, response) {
           if (err || stderr) {
             callback(stderr || err);
           } else if (stdout.indexOf(process.env.MIDDLEWARE_OUTPUT_FAILED) !== -1) {
-            const message = stdout.replace(process.env.MIDDLEWARE_OUTPUT_FAILED, '')
+            const message = stdout.replace(process.env.MIDDLEWARE_OUTPUT_FAILED, '');
             callback(message);
           } else {
             callback(null, stdout);

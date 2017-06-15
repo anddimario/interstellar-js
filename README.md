@@ -157,12 +157,24 @@ hset interstellar:vhost:localhost:3000:/redis code1 "\\$test='INTERSTELLAR.VARIA
 __IMP__ Note that `CUSTOM_CODE` in commands is where interstellare replace your code in commands and `INTERSTELLAR.VARIABLES` is replaced from interstellar variables object, with headers, body, querystring and middleware response. The `INTERSTELLAR.VARIABLES` is encoded with `encodeURIComponent()` this allow a simple escaped, but need `decodeURIComponent()`, as you can see in code, to get the object.    
 Code are stored with index as commands' references, for example in "both" example, `code0` is used by `node -e CUSTOM_CODE` first element in commands.
 
+### HTTP PROXY (example with [MICRO](https://github.com/zeit/micro))
+They are long running jobs that get back a success message, but running in background, for example, add in redis:
+```
+hset interstellar:vhost:localhost:8000:/micro method GET
+hset interstellar:vhost:localhost:8000:/micro commands "http://localhost:3000"
+hset interstellar:vhost:localhost:8000:/micro type http
+```
+Then create and run micro, as example in https://github.com/zeit/micro.
+Try with curl: `curl http://localhost:8000/micro`     
+**IMP** Attention to ports settings
+**NOTE** As POST microservice example, you can use this: [MICRO POST](https://github.com/zeit/micro/tree/master/examples/urlencoded-body-parsing)
+
 ### Detachable jobs
 They are long running jobs that get back a success message, but running in background, for example, add in redis:
 ```
 hset interstellar:vhost:localhost:3000:/job method GET
 hset interstellar:vhost:localhost:3000:/job commands "bash /path/test.sh"
-hset interstellar:vhost:localhost:3000:/job job true
+hset interstellar:vhost:localhost:3000:/job type job
 ```
 Then create test.sh with:
 ```
