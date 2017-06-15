@@ -5,6 +5,7 @@ It's an experiment to define a flexible microservices proxy. Microservices run a
 ### Features
 - multiple languages backend
 - middlewares (different languages too)
+- http proxy
 - code stored in redis
 - not reload for new codes
 - status health check
