@@ -23,7 +23,7 @@ It's an experiment to define a flexible microservices proxy. Microservices run a
 - minimal requirements
 
 ### Requirements
-Node.JS v4 and redis
+Node.JS v8 and redis
 
 ### Install
 `git clone git@github.com:anddimario/interstellar.git`    
@@ -159,7 +159,7 @@ __IMP__ Note that `CUSTOM_CODE` in commands is where interstellare replace your 
 Code are stored with index as commands' references, for example in "both" example, `code0` is used by `node -e CUSTOM_CODE` first element in commands.
 
 ### HTTP PROXY (example with [MICRO](https://github.com/zeit/micro))
-They are long running jobs that get back a success message, but running in background, for example, add in redis:
+Proxy to other listen service, for example, add in redis:
 ```
 hset interstellar:vhost:localhost:8000:/micro method GET
 hset interstellar:vhost:localhost:8000:/micro commands "http://localhost:3000"
@@ -350,6 +350,21 @@ Successful transactions:        7633
 Failed transactions:	           0
 Longest transaction:	        0.54
 Shortest transaction:	        0.19
+```
+With micro (get data from sqlite)
+```
+Transactions:		       14116 hits
+Availability:		      100.00 %
+Elapsed time:		       59.58 secs
+Data transferred:	        0.23 MB
+Response time:		        0.21 secs
+Transaction rate:	      236.93 trans/sec
+Throughput:		        0.00 MB/sec
+Concurrency:		       49.87
+Successful transactions:       14116
+Failed transactions:	           0
+Longest transaction:	        0.47
+Shortest transaction:	        0.09
 ```
 
 

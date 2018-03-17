@@ -86,7 +86,6 @@ function createCommand(resVhost, body, parsedUrl, headers, response) {
             method: resVhost.method,
             url: resVhost.commands
           };
-          console.log(body);
           if (body) {
             options.form = body;
             options.json = true;
@@ -174,7 +173,7 @@ function makeExecution(request, response, hostname, parsedUrl, resVhost) {
   const body = [];
   request.on('error', function (err) {
     const date = Date.now;
-    redisClient.set(`interstellar:logs:${hostname}:${date}`, err);
+    console.log(`${date} ${err}`);
   }).on('data', function (chunk) {
     body.push(chunk);
   }).on('end', function () {
@@ -186,30 +185,20 @@ function makeExecution(request, response, hostname, parsedUrl, resVhost) {
       }
       if (err) {
         if (process.env.STATS) {
-          stats.increment(500, hostname, request.headers.host, (err) => {
-            if (err) {
-              const date = Date.now;
-              return redisClient.set(`interstellar:logs:${hostname}:${date}`, err);
-            }
-          });
+          stats.increment(500, hostname, request.headers.host);
         }
         response.statusCode = 500;
         response.end(err);
       } else {
         if (process.env.STATS) {
-          stats.increment(200, hostname, request.headers.host, (err) => {
-            if (err) {
-              const date = Date.now;
-              return redisClient.set(`interstellar:logs:${hostname}:${date}`, err);
-            }
-          });
+          stats.increment(200, hostname, request.headers.host);
         }
         if (process.env.GZIP) {
           response.setHeader('Content-Encoding', 'gzip');
           zlib.gzip(results, (err, res) => {
             if (err) {
               const date = Date.now;
-              return redisClient.set(`interstellar:logs:${hostname}:${date}`, err);
+              console.log(`${date} ${err}`);
             } else {
               response.end(res);
             }
